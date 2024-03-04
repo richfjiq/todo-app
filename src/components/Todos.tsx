@@ -3,16 +3,49 @@ import useSWR from 'swr';
 
 import trashLogo from '../assets/logos/trash.svg';
 import completeLogo from '../assets/logos/complete.svg';
+import pendingLogo from '../assets/logos/incomplete.svg';
 import { fetcher } from '../utils';
 import Loading from './Loading';
 import { ITodo } from '../interfaces';
+import { todosApi } from '../api';
+
+const todosUrl = 'http://localhost:8080/api/todos';
 
 const Todos = () => {
   const [pending, setPending] = useState(true);
-  const { data, isLoading } = useSWR<ITodo[]>(
-    'http://localhost:8080/api/todos',
-    fetcher
-  );
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [todoToUpdate, setTodoToUpdate] = useState('');
+  const [todoToDelete, setTodoToDelete] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const { data, isLoading, mutate } = useSWR<ITodo[]>(todosUrl, fetcher);
+
+  const updateStatus = async (id: string, complete: boolean): Promise<void> => {
+    try {
+      setTodoToUpdate(id);
+      setUpdateLoading(true);
+      await todosApi.put(`/${id}`, { complete });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setTodoToUpdate('');
+      setUpdateLoading(false);
+      mutate();
+    }
+  };
+
+  const deleteTodo = async (id: string): Promise<void> => {
+    try {
+      setTodoToDelete(id);
+      setDeleteLoading(true);
+      await todosApi.delete(`/${id}`);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setTodoToDelete('');
+      setDeleteLoading(false);
+      mutate();
+    }
+  };
 
   const todosByStatus = useMemo(() => {
     if (!data) return false;
@@ -62,8 +95,29 @@ const Todos = () => {
                   <p className="font-light">{todo.description}</p>
                 </div>
                 <div className="flex items-center sm:justify-around justify-between sm:w-[15%] w-[20%] ">
-                  <img className="w-[20px] cursor-pointer" src={completeLogo} />
-                  <img className="w-[20px] cursor-pointer" src={trashLogo} />
+                  {updateLoading && todoToUpdate === todo._id ? (
+                    <div className="w-[20px]">
+                      <Loading width={5} height={5} />{' '}
+                    </div>
+                  ) : (
+                    <img
+                      onClick={() => updateStatus(todo._id, !todo.complete)}
+                      className="w-[20px] cursor-pointer"
+                      src={pending ? completeLogo : pendingLogo}
+                    />
+                  )}
+
+                  {deleteLoading && todoToDelete === todo._id ? (
+                    <div className="w-[20px]">
+                      <Loading width={5} height={5} />{' '}
+                    </div>
+                  ) : (
+                    <img
+                      onClick={() => deleteTodo(todo._id)}
+                      className="w-[20px] cursor-pointer"
+                      src={trashLogo}
+                    />
+                  )}
                 </div>
               </div>
             </div>
